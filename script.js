@@ -280,6 +280,7 @@ const MODE_RGB = {
 let filter           = 'all';
 let selected         = null;
 let gIndex           = 0;
+let sIndex           = 0;
 let gTimer;
 let routeLayer;
 let originMarker;
@@ -349,13 +350,17 @@ function renderCards() {
         ? DEST
         : DEST.filter(d => d.options.some(o => o[0] === filter));
 
+    sIndex = 0;
+
     content.innerHTML = `
-        <div class="bento-grid">
+        <div class="slider" id="slider">
+            <button type="button" class="arrow slider-arrow prev" id="sliderPrev" aria-label="Foto sebelumnya"><i data-lucide="chevron-left"></i></button>
+            <div class="slider-viewport" id="sliderViewport">
+            <div class="slider-track" id="sliderTrack">
             ${filteredDest.map((d, index) => {
-                const isFeatured  = index % 6 === 0 || index % 6 === 3;
                 const uniqueModes = [...new Set(d.options.map(o => o[0]))];
                 return `
-                <article class="card${isFeatured ? ' featured' : ''}" style="--stagger-delay:${index * 80}ms">
+                <article class="card slide" data-slide="${index}">
                     <div class="photo">
                         <img src="${escapeHtml(d.img)}" alt="${escapeHtml(d.name)}" loading="lazy" decoding="async"
                             onerror="this.closest('.photo').classList.add('photo--fallback');this.style.display='none';">
@@ -384,20 +389,75 @@ function renderCards() {
                     </div>
                 </article>`;
             }).join('')}
+            </div>
+            </div>
+            <button type="button" class="arrow slider-arrow next" id="sliderNext" aria-label="Foto berikutnya"><i data-lucide="chevron-right"></i></button>
         </div>
     `;
 
-    content.querySelectorAll('[data-id]').forEach(button => {
-        button.onclick = () => {
-            const destination = DEST.find(d => d.id == button.dataset.id);
-            renderResult(destination);
-            scrollToContent();
-        };
+    const viewport = document.getElementById('sliderViewport');
+    const track    = document.getElementById('sliderTrack');
+
+    track.querySelectorAll('.slide').forEach(slide => {
+        slide.addEventListener('click', event => {
+            const idx = Number(slide.dataset.slide);
+            if (idx !== sIndex) {
+                event.preventDefault();
+                goSlide(idx);
+                return;
+            }
+            const button = event.target.closest('.route-btn');
+            if (button) {
+                const destination = DEST.find(d => d.id == button.dataset.id);
+                renderResult(destination);
+                scrollToContent();
+            }
+        });
     });
 
+    document.getElementById('sliderPrev').onclick = () => goSlide(sIndex - 1);
+    document.getElementById('sliderNext').onclick = () => goSlide(sIndex + 1);
+
+    let startX = 0;
+    viewport.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+    viewport.addEventListener('touchend', e => {
+        const delta = e.changedTouches[0].clientX - startX;
+        if (delta > 50)       goSlide(sIndex - 1);
+        else if (delta < -50) goSlide(sIndex + 1);
+    }, { passive: true });
+
     createIconsSafe();
-    if (window.__observeCards) window.__observeCards();
+    positionSlider();
+    requestAnimationFrame(positionSlider);
 }
+
+function goSlide(index) {
+    const track = document.getElementById('sliderTrack');
+    if (!track || !track.children.length) return;
+    sIndex = Math.max(0, Math.min(track.children.length - 1, index));
+    positionSlider();
+}
+
+function positionSlider() {
+    const viewport = document.getElementById('sliderViewport');
+    const track    = document.getElementById('sliderTrack');
+    if (!viewport || !track || !track.children.length) return;
+    const slides = Array.from(track.children);
+    sIndex = Math.max(0, Math.min(slides.length - 1, sIndex));
+    const active = slides[sIndex];
+    const offset = viewport.clientWidth / 2 - (active.offsetLeft + active.offsetWidth / 2);
+    track.style.transform = 'translateX(' + offset + 'px)';
+    slides.forEach((slide, i) => {
+        slide.classList.toggle('is-active', i === sIndex);
+        slide.setAttribute('aria-hidden', i === sIndex ? 'false' : 'true');
+    });
+    const prev = document.getElementById('sliderPrev');
+    const next = document.getElementById('sliderNext');
+    if (prev) prev.disabled = sIndex === 0;
+    if (next) next.disabled = sIndex === slides.length - 1;
+}
+
+window.addEventListener('resize', positionSlider);
 
 
 
@@ -674,7 +734,13 @@ function renderGallery() {
         document.getElementById('prev').onclick = () => goGallery(-1);
         document.getElementById('next').onclick = () => goGallery(1);
         filmEl.querySelectorAll('.thumb').forEach(button => {
-            button.onclick = () => { gIndex = Number(button.dataset.i); renderGallery(); resetTimer(); };
+            button.onclick = () => {
+                gIndex = Number(button.dataset.i);
+                renderGallery();
+                resetTimer();
+                const target = document.getElementById('galeri');
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
         });
         stage.dataset.built = '1';
         createIconsSafe();
@@ -1109,16 +1175,43 @@ function initRoutePlanner() {
         if (wrap) wrap.classList.toggle('field-wrap--active', this.value !== '');
     });
 
-    document.getElementById('useLocation').onclick = () => {
+    const locBtn = document.getElementById('useLocation');
+    locBtn.onclick = () => {
+        if (!window.isSecureContext) {
+            status.textContent = 'GPS hanya jalan di HTTPS. Buka situs lewat https:// atau isi koordinat manual.';
+            return;
+        }
         if (!navigator.geolocation) {
             status.textContent = 'Browser tidak mendukung lokasi perangkat.';
             return;
         }
-        status.textContent = 'Meminta izin lokasi...';
-        navigator.geolocation.getCurrentPosition(
-            pos => { setOrigin(pos.coords.latitude, pos.coords.longitude); status.textContent = 'Lokasi awal berhasil digunakan.'; },
-            ()  => { status.textContent = 'Lokasi tidak tersedia. Klik peta atau isi koordinat.'; }
-        );
+        locBtn.disabled = true;
+        status.textContent = 'Mencari lokasi... (izinkan akses lokasi jika diminta)';
+
+        const done = () => { locBtn.disabled = false; };
+        const ok = pos => {
+            done();
+            setOrigin(pos.coords.latitude, pos.coords.longitude);
+            if (map) map.setView([pos.coords.latitude, pos.coords.longitude], 15);
+            status.textContent = 'Lokasi awal berhasil digunakan (akurasi \u00b1' + Math.round(pos.coords.accuracy) + ' m).';
+        };
+        const fail = err => {
+            done();
+            const msg = {
+                1: 'Izin lokasi ditolak. Ketuk ikon gembok di address bar > Izin > Lokasi > Izinkan, lalu coba lagi.',
+                2: 'Lokasi tidak terdeteksi. Pastikan GPS/Lokasi HP aktif.',
+                3: 'Waktu pencarian lokasi habis. Coba lagi di tempat terbuka atau klik peta.'
+            };
+            status.textContent = msg[err && err.code] || 'Lokasi tidak tersedia. Klik peta atau isi koordinat.';
+        };
+
+        // Coba cepat (jaringan/wifi) dulu, kalau gagal baru GPS akurasi tinggi.
+        navigator.geolocation.getCurrentPosition(ok, err => {
+            if (err && err.code === 1) return fail(err);
+            status.textContent = 'Mencoba GPS akurasi tinggi...';
+            navigator.geolocation.getCurrentPosition(ok, fail,
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+        }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 });
     };
 
     document.getElementById('pickOnMap').onclick = () => {

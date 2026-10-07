@@ -303,8 +303,13 @@ header('Content-Type: text/html; charset=utf-8');
             </div>
             <div class="gallery">
                 <div class="gallery-stage" id="galleryStage"></div>
-                <div class="filmstrip" id="dots" role="tablist" aria-label="Pilih foto"></div>
             </div>
+        </div>
+    </section>
+
+    <section class="section section--photos" id="foto-singkat" aria-label="Pilih foto">
+        <div class="container">
+            <div class="photo-grid" id="dots" role="tablist" aria-label="Pilih foto"></div>
             <p class="source">Foto: gambar lokasi relevan dari Wikimedia Commons.</p>
         </div>
     </section>
@@ -320,7 +325,7 @@ header('Content-Type: text/html; charset=utf-8');
             </div>
             RuteSolo
         </div>
-        <p>ITechnoCup 2026 &middot; Panduan transportasi wisata Kota Solo</p>
+        <p>Panduan transportasi wisata Kota Solo</p>
         <p class="footer-credit">
             Dibuat untuk warga dan wisatawan kota Solo
         </p>

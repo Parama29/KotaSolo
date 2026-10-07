@@ -640,3 +640,64 @@ input[type="search"]::-webkit-search-decoration {
 .bst-legend-btn.is-dim{opacity:.4;}
 .bst-legend-btn:disabled{opacity:.35;cursor:not-allowed;}
 .bst-legend-btn:focus-visible{outline:2px solid var(--route-color);outline-offset:2px;}
+
+/* ===== Layout sesuai sketsa: slider populer, galeri besar, grid foto 3x2 ===== */
+.slider{position:relative;display:block;}
+.slider-viewport{overflow:hidden;padding-block:28px;}
+.slider-track{display:flex;align-items:stretch;transition:transform 500ms var(--ease-out);will-change:transform;}
+.slider .card.slide{flex:0 0 min(440px,78vw);margin-inline:-30px;opacity:.55;transform:scale(.82);z-index:1;cursor:pointer;transition:transform 500ms var(--ease-out),opacity 500ms var(--ease-out),box-shadow 280ms var(--ease-out),border-color 280ms;transition-delay:0ms;}
+.slider .card.slide.is-active{opacity:1;transform:scale(1);z-index:3;cursor:default;box-shadow:var(--shadow-hover);border-color:var(--border-strong);}
+.slider .card.slide:hover{transform:scale(.82)!important;opacity:.8;}
+.slider .card.slide.is-active:hover{transform:scale(1)!important;opacity:1;}
+.slider .card.slide:not(.is-active) .route-btn{pointer-events:none;}
+.slider .card.slide .photo{max-height:260px;}
+.slider-arrow{z-index:5;top:50%;}
+.slider-arrow.prev{left:4px;}
+.slider-arrow.next{right:4px;}
+.slider-arrow:disabled{opacity:.35;cursor:not-allowed;}
+@media(max-width:599px){
+  .slider .card.slide{margin-inline:-40px;}
+  .slider-arrow{display:none;}
+}
+
+.section--photos{padding-top:0;}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);padding:0;background:transparent;overflow:visible;}
+#dots.photo-grid{display:grid;padding:0;background:transparent;overflow:visible;gap:var(--sp-4);}
+.photo-grid .thumb{width:100%;height:auto;flex:none;aspect-ratio:4/3;border-radius:var(--radius-md);border:1px solid var(--border-subtle);}
+.photo-grid .thumb.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-2);}
+.photo-grid .thumb:hover{border-color:var(--border-strong);}
+@media(max-width:559px){.photo-grid{grid-template-columns:repeat(2,1fr);gap:var(--sp-3);}}
+
+/* ===== Mobile menu: definitive fix =====
+   Akar masalah: backdrop-filter di .navbar membuat navbar jadi "containing block"
+   untuk #mainNav (position:fixed). Akibatnya menu cuma setinggi navbar, dan saat
+   tertutup (translateX(100%)) ia mendorong lebar halaman -> layout bergeser di HP.
+   Solusi: pindahkan blur ke pseudo-element supaya .navbar sendiri tidak punya filter. */
+html{overflow-x:hidden;}
+@media(max-width:799px){
+  .navbar,
+  .navbar--scrolled,
+  .navbar.menu-open{backdrop-filter:none;-webkit-backdrop-filter:none;}
+  .navbar::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+    backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);}
+  .navbar.menu-open::before{display:none;}
+
+  #mainNav{
+    height:100vh;height:100dvh;width:100vw;max-width:100%;
+    visibility:hidden;pointer-events:none;
+    transition:transform var(--t-base) var(--ease-out),visibility 0s linear var(--t-base);
+  }
+  #mainNav.active{visibility:visible;pointer-events:auto;transition:transform var(--t-base) var(--ease-out),visibility 0s;}
+}
+
+/* ===== Search dropdown di HP =====
+   Dropdown sebelumnya rata-kanan ke tombol cari (yang posisinya di tengah-kanan),
+   lebar 420px -> melebar keluar layar ke kiri. Di HP, ikat ke navbar & lebar penuh. */
+@media(max-width:799px){
+  .nav-search-wrap{position:static;}
+  .nav-search-dropdown{
+    left:12px;right:12px;top:calc(100% + 8px);
+    width:auto;max-width:none;
+  }
+  .nav-search-dropdown .search-box input{font-size:16px;} /* cegah auto-zoom iOS/Chrome saat fokus */
+}
